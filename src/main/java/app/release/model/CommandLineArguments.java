@@ -16,8 +16,11 @@ public class CommandLineArguments {
     @Option(name = "-file", required = true, usage = "APK Or AAB file to be released")
     private String file;
 
-    @Option(name = "-track", required = true, usage = "Release track to use. Eg. internal, alpha, beta or production")
+    @Option(name = "-track", required = true, usage = "Release track to use. Eg. internal, alpha, beta or production, see https://developers.google.com/android-publisher/tracks")
     private String trackName;
+
+    @Option(name = "-status", required = false, usage = "Eg. completed (default), draft (only releases with status draft may be created on draft app), inProgress, see https://developers.google.com/android-publisher/api-ref/rest/v3/edits.tracks#Status")
+    private String status;
 
     @Option(name = "-notes", forbids = "-notesFile", usage = "(optional) Release notes")
     private String notes;
@@ -31,6 +34,9 @@ public class CommandLineArguments {
 
     public void setJsonKeyPath(String jsonKeyPath) {
         this.jsonKeyPath = jsonKeyPath;
+    }
+    public String getStatus() {
+        return status;
     }
 
     public String getAppName() {

@@ -1,0 +1,6 @@
+#!/bin/bash
+. ./bash_lib
+
+mvn install
+
+java -jar ./target/release-manager-1.3b.jar "$@"

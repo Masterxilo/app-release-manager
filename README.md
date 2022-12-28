@@ -1,20 +1,16 @@
-# Google Play Store Publisher
+# Masterxilo's app-release-manager or Google Play Store Publisher Utility
 
-This is a simple tool to upload android apk files to play store which is inspired from https://github.com/codebysd/java-play-store-uploader. 
-Suitable for automation of play store uploads in a CI system.
+Forked from https://github.com/rakeshgirase/app-release-manager to solve https://github.com/rakeshgirase/app-release-manager/issues/7
 
 ## Requirements
 
 1. Java (JRE) 8 or above
 
-## Install
-
-1. Download the latest jar file from [Releases Section](https://github.com/rakeshgirase/app-release-manager/releases).
-2. Place it in root folder of your application. You can check in the file for Cloud build.
-3. Use command java -jar release-manager-1.2.jar -key "key.json" -file "app.apk" -track "internal" -name "myApp" -notes "new release". (You can use this command in your cloud build config file)
-
-
 ## Usage
+
+```bash
+./app-release-manager
+```
 
 ### 1. Setup Play Store
 
@@ -45,7 +41,7 @@ Build signed production android apk or aab file to upload. In case of a CI serve
 Execute the binary, passing required data in arguments.
 * APK File
     ```bash
-     java -jar release-manager-1.3.jar -key "key.json" -file "app.apk" -track "internal" -name "myApp" -notes "new release"
+     ./app-release-manager -key "key.json" -file "app.apk" -track "internal" -name "myApp" -notes "new release"
     ```
 * AAB File
     ```bash

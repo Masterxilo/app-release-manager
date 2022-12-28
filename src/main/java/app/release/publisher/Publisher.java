@@ -5,6 +5,6 @@ import java.security.GeneralSecurityException;
 
 public interface Publisher {
 
-    void publish() throws IOException, GeneralSecurityException;
+    void publish() throws Exception;
 
 }

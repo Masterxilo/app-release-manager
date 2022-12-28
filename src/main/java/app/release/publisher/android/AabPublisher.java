@@ -35,7 +35,6 @@ public class AabPublisher implements Publisher {
     private static final String MIME_TYPE_AAB = "application/octet-stream";
     private final CommandLineArguments arguments;
 
-
     public AabPublisher(CommandLineArguments arguments) {
         this.arguments = arguments;
     }
@@ -46,12 +45,13 @@ public class AabPublisher implements Publisher {
      * @throws Exception Upload error
      */
     @Override
-    public void publish() throws IOException, GeneralSecurityException {
+    public void publish() throws Exception {
 
         // load key file credentials
         log.info("Loading account credentials...");
         Path jsonKey = FileSystems.getDefault().getPath(arguments.getJsonKeyPath()).normalize();
-        GoogleCredentials credentials = ServiceAccountCredentials.fromStream(new FileInputStream(jsonKey.toFile())).createScoped(Collections.singleton(AndroidPublisherScopes.ANDROIDPUBLISHER));
+        GoogleCredentials credentials = ServiceAccountCredentials.fromStream(new FileInputStream(jsonKey.toFile()))
+                .createScoped(Collections.singleton(AndroidPublisherScopes.ANDROIDPUBLISHER));
 
         // load aab file info
         log.info("Loading file information...");
@@ -82,8 +82,7 @@ public class AabPublisher implements Publisher {
         AndroidPublisher publisher = new AndroidPublisher.Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),
                 JacksonFactory.getDefaultInstance(),
-                setHttpTimeout(new HttpCredentialsAdapter(credentials))
-        ).setApplicationName(applicationName).build();
+                setHttpTimeout(new HttpCredentialsAdapter(credentials))).setApplicationName(applicationName).build();
 
         // create an edit
         log.info("Initialising new edit...");
@@ -97,28 +96,86 @@ public class AabPublisher implements Publisher {
         log.info("Edit created with Id: [{}]", editId);
 
         try {
+            
             // publish the file
             log.info("Uploading AAB file...");
             AbstractInputStreamContent aabContent = new FileContent(MIME_TYPE_AAB, file.toFile());
             Bundle bundle = publisher.edits().bundles().upload(packageName, editId, aabContent).execute();
+            final var bundleVersionCode = (long) bundle.getVersionCode();
             log.info("AAB File uploaded with Version Code: [{}]", bundle.getVersionCode());
 
             // create a release on track
             log.info("Creating a release on track:[{}]", arguments.getTrackName());
-            TrackRelease release = new TrackRelease().setName("Automated publish").setStatus("completed")
-                    .setVersionCodes(Collections.singletonList((long) bundle.getVersionCode()))
+            TrackRelease release = new TrackRelease()
+                    .setName("Automated publish")
+                    .setStatus(arguments.getStatus() == null ? "completed" : arguments.getStatus())
+                    .setVersionCodes(Collections.singletonList(bundleVersionCode))
+                    .setUserFraction(1.0) // IN_PROGRESS release must have fraction
                     .setReleaseNotes(releaseNotes);
-            Track track = new Track().setReleases(Collections.singletonList(release)).setTrack(arguments.getTrackName());
+
+            Track track = new Track().setReleases(Collections.singletonList(release))
+                    .setTrack(arguments.getTrackName());
             publisher.edits().tracks().update(packageName, editId, arguments.getTrackName(), track).execute();
             log.info("Release created on track: [{}]", arguments.getTrackName());
 
             // commit edit
             log.info("Committing edit...");
             publisher.edits().commit(packageName, editId).execute();
-            log.info("Success. Committed Edit id: [{}]", editId);
+            log.info("Success. Committed Edit id: [{}]. Release created.", editId);
 
             // Success
-        } catch (Exception e) {
+
+            // extra
+            updateVersionStatusCompleted(publisher, packageName, bundleVersionCode);
+
+        } catch (final Exception e) {
+            String errorMessage = "Operation Failed: " + e.getMessage();
+            e.printStackTrace();
+            log.error("Operation failed due to an errorMessage!, Deleting edit...");
+            try {
+                publisher.edits().delete(packageName, editId).execute();
+            } catch (Exception e2) {
+                errorMessage += "\nFailed to delete edit: " + e2.getMessage();
+            }
+            log.error("Error uploading the aab file: [{}]", errorMessage);
+            throw new IOException(errorMessage, e);
+        }
+
+    }
+
+    public void updateVersionStatusCompleted(AndroidPublisher publisher, String packageName, long bundleVersionCode) throws Exception {
+
+        // create an edit
+        log.info("Initialising new edit...");
+        AppEdit edit = null;
+        try {
+            edit = publisher.edits().insert(packageName, null).execute();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        final String editId = edit.getId();
+        log.info("Edit created with Id: [{}]", editId);
+
+        try {
+            // create a release on track
+            log.info("Updating a release on track:[{}]", arguments.getTrackName());
+            TrackRelease release = new TrackRelease()
+                    .setName("Automated publish")
+                    .setStatus("completed")
+                    .setVersionCodes(Collections.singletonList(bundleVersionCode));
+
+            Track track = new Track().setReleases(Collections.singletonList(release))
+                    .setTrack(arguments.getTrackName());
+            publisher.edits().tracks().update(packageName, editId, arguments.getTrackName(), track).execute();
+            log.info("Release updated on track: [{}]", arguments.getTrackName());
+
+            // commit edit
+            log.info("Committing edit...");
+            publisher.edits().commit(packageName, editId).execute();
+            log.info("Success. Committed Edit id: [{}]. Release updated.", editId);
+
+            // Success
+        } catch (final Exception e) {
             String errorMessage = "Operation Failed: " + e.getMessage();
             e.printStackTrace();
             log.error("Operation failed due to an errorMessage!, Deleting edit...");
@@ -135,8 +192,8 @@ public class AabPublisher implements Publisher {
     private HttpRequestInitializer setHttpTimeout(final HttpRequestInitializer requestInitializer) {
         return httpRequest -> {
             requestInitializer.initialize(httpRequest);
-            httpRequest.setConnectTimeout(3 * 60000);  // 3 minutes connect timeout
-            httpRequest.setReadTimeout(3 * 60000);  // 3 minutes read timeout
+            httpRequest.setConnectTimeout(3 * 60000); // 3 minutes connect timeout
+            httpRequest.setReadTimeout(3 * 60000); // 3 minutes read timeout
         };
     }
 }
