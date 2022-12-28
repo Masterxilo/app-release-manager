@@ -10,6 +10,10 @@ public class CommandLineArguments {
     @Option(name = "-name", usage = "(optional) Provide with AAB File")
     private String appName;
 
+    
+    @Option(name = "-releasename", usage = "name of the new release", required = true)
+    private String releaseName;
+
     @Option(name = "-packageName", usage = "(optional) Provide with AAB File")
     private String packageName;
 
@@ -39,6 +43,9 @@ public class CommandLineArguments {
         return status;
     }
 
+    public String getReleaseName() {
+        return releaseName;
+    }
     public String getAppName() {
         return appName;
     }

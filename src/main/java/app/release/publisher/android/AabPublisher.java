@@ -95,22 +95,23 @@ public class AabPublisher implements Publisher {
         final String editId = edit.getId();
         log.info("Edit created with Id: [{}]", editId);
 
+        long bundleVersionCode = 0;
         try {
             
             // publish the file
             log.info("Uploading AAB file...");
             AbstractInputStreamContent aabContent = new FileContent(MIME_TYPE_AAB, file.toFile());
             Bundle bundle = publisher.edits().bundles().upload(packageName, editId, aabContent).execute();
-            final var bundleVersionCode = (long) bundle.getVersionCode();
+            bundleVersionCode = (long) bundle.getVersionCode();
             log.info("AAB File uploaded with Version Code: [{}]", bundle.getVersionCode());
 
             // create a release on track
             log.info("Creating a release on track:[{}]", arguments.getTrackName());
             TrackRelease release = new TrackRelease()
-                    .setName("Automated publish")
+                    .setName(arguments.getReleaseName())
                     .setStatus(arguments.getStatus() == null ? "completed" : arguments.getStatus())
                     .setVersionCodes(Collections.singletonList(bundleVersionCode))
-                    .setUserFraction(1.0) // IN_PROGRESS release must have fraction
+                    //.setUserFraction(1.0) // IN_PROGRESS release must have fraction
                     .setReleaseNotes(releaseNotes);
 
             Track track = new Track().setReleases(Collections.singletonList(release))
@@ -125,9 +126,6 @@ public class AabPublisher implements Publisher {
 
             // Success
 
-            // extra
-            updateVersionStatusCompleted(publisher, packageName, bundleVersionCode);
-
         } catch (final Exception e) {
             String errorMessage = "Operation Failed: " + e.getMessage();
             e.printStackTrace();
@@ -137,9 +135,13 @@ public class AabPublisher implements Publisher {
             } catch (Exception e2) {
                 errorMessage += "\nFailed to delete edit: " + e2.getMessage();
             }
-            log.error("Error uploading the aab file: [{}]", errorMessage);
+            log.error("Error: [{}]", errorMessage);
             throw new IOException(errorMessage, e);
         }
+
+        // extra step, try to activate draft release on internalt testing track.. doesn't work for unreleased draft app?
+        // TODO not working
+        //updateVersionStatusCompleted(publisher, packageName, bundleVersionCode);
 
     }
 
@@ -160,8 +162,8 @@ public class AabPublisher implements Publisher {
             // create a release on track
             log.info("Updating a release on track:[{}]", arguments.getTrackName());
             TrackRelease release = new TrackRelease()
-                    .setName("Automated publish")
-                    .setStatus("completed")
+                    .setStatus("inProgress")
+                    .setUserFraction(0.0)
                     .setVersionCodes(Collections.singletonList(bundleVersionCode));
 
             Track track = new Track().setReleases(Collections.singletonList(release))
@@ -184,7 +186,7 @@ public class AabPublisher implements Publisher {
             } catch (Exception e2) {
                 errorMessage += "\nFailed to delete edit: " + e2.getMessage();
             }
-            log.error("Error uploading the aab file: [{}]", errorMessage);
+            log.error("Error: [{}]", errorMessage);
             throw new IOException(errorMessage, e);
         }
     }
